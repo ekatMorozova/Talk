@@ -1,176 +1,242 @@
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.*;
 import java.util.LinkedList;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
 
-/**
- * проект реализует консольный многопользовательский чат.
- * вход в программу запуска сервера - в классе Server.
- * @author izotopraspadov, the tech
- * @version 2.0
- */
-
-class ServerSomthing extends Thread {
-    
-    private Socket socket; // сокет, через который сервер общается с клиентом,
-    // кроме него - клиент и сервер никак не связаны
-    private BufferedReader in; // поток чтения из сокета
-    private BufferedWriter out; // поток завписи в сокет
-    
-    /**
-     * для общения с клиентом необходим сокет (адресные данные)
-     * @param socket
-     * @throws IOException
-     */
-    
-    public ServerSomthing(Socket socket) throws IOException {
-        this.socket = socket;
-        // если потоку ввода/вывода приведут к генерированию искдючения, оно проброситься дальше
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-        Server.story.printStory(out); // поток вывода передаётся для передачи истории последних 10
-        // сооюбщений новому поключению
-        start(); // вызываем run()
-    }
-    @Override
-    public void run() {
-        String word;
-        try {
-            // первое сообщение отправленное сюда - это никнейм
-            word = in.readLine();
-            try {
-                out.write(word + "\n");
-                out.flush(); // flush() нужен для выталкивания оставшихся данных
-                // если такие есть, и очистки потока для дьнейших нужд
-            } catch (IOException ignored) {}
-            try {
-                while (true) {
-                    word = in.readLine();
-                    if(word.equals("stop")) {
-                        this.downService(); // харакири
-                        break; // если пришла пустая строка - выходим из цикла прослушки
-                    }
-                    System.out.println("Echoing: " + word);
-                    Server.story.addStoryEl(word);
-                    for (ServerSomthing vr : Server.serverList) {
-                        vr.send(word); // отослать принятое сообщение с привязанного клиента всем остальным влючая его
-                    }
-                }
-            } catch (NullPointerException ignored) {}
-
-            
-        } catch (IOException e) {
-            this.downService();
-        }
-    }
-    
-    /**
-     * отсылка одного сообщения клиенту по указанному потоку
-     * @param msg
-     */
-    private void send(String msg) {
-        try {
-            out.write(msg + "\n");
-            out.flush();
-        } catch (IOException ignored) {}
-        
-    }
-    
-    /**
-     * закрытие сервера
-     * прерывание себя как нити и удаление из списка нитей
-     */
-    private void downService() {
-            try {
-            if(!socket.isClosed()) {
-                socket.close();
-                in.close();
-                out.close();
-                for (ServerSomthing vr : Server.serverList) {
-                    if(vr.equals(this)) vr.interrupt();
-                    Server.serverList.remove(this);
-                }
-            }
-        } catch (IOException ignored) {}
-    }
+public class Server
+{
+	public static final int PORT = 8080;
+	public static LinkedList<ServerPr> Users = new LinkedList<>();
+	public static Story story;
+	
+	public static void main(String[] args) throws IOException
+	{
+		new GUI();
+		ServerSocket server = new ServerSocket(PORT);
+		story = new Story();
+		GUI.IO.printMsg("Server started...");
+		try
+		{
+			while(true)
+			{
+			    Socket socket = server.accept();
+			    try
+			    {
+			    	Users.add(new ServerPr(socket));
+			    }
+			    catch(IOException ex)
+			    {
+			    	socket.close();
+			    }
+			}
+		}
+		finally
+		{
+			server.close();
+		}
+	}
 }
 
-/**
- * класс хранящий в ссылочном приватном
- * списке информацию о последних 10 (или меньше) сообщениях
- */
+class ServerPr extends Thread
+{
+	private Socket socket;
+	private BufferedReader in;
+	private BufferedWriter out;
+	private String nickname;
+	
+	public ServerPr(Socket socket) throws IOException
+	{
+		this.socket = socket;
+		in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+		out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+		Server.story.printStory(out);
+		start();
+	}
+	
+	@Override
+	public void run()
+	{
+		String str;
+		try
+		{
+			str = in.readLine();
+			nickname = str;
+			GUI.IO.printMsg("New user " + nickname);
+			try
+			{
+				while(true)
+				{
+					str = in.readLine();
+					if(str.equals("STOP"))
+					{
+						this.closeSocket();
+						break;
+					}
+					if(!str.equals(null))
+					{
+						GUI.IO.printMsg("Echoing: " + str);
+						Server.story.addStoryEl(str);
+						for(ServerPr pr : Server.Users)
+						{
+							pr.send(str);
+						}
+					}
+				}
+			}
+			catch(NullPointerException ignored)
+			{
+				
+			}
+		}
+		catch(IOException ex)
+		{
+			this.closeSocket();
+		}
+	}
+	
+	public void send(String str)
+	{
+		try
+		{
+			out.write(str + "\n");
+			out.flush();
+		}
+		catch(IOException ignored)
+		{
+			
+		}
+	}
+	
+	public void closeSocket()
+	{
+		try
+		{
+			if(!socket.isClosed()) 
+    		{
+    			socket.close();
+    			in.close();
+    			out.close();
+    			for(ServerPr pr : Server.Users) 
+    			{
+    				if(pr.equals(this)) 
+    				pr.interrupt();
+    				Server.Users.remove(this);
+    			}
+    		}
+		}
+		catch(IOException ignored)
+		{
+			
+		}
+	}
+}
 
-class Story {
-    
+class Story 
+{   
     private LinkedList<String> story = new LinkedList<>();
-    
-    /**
-     * добавить новый элемент в список
-     * @param el
-     */
-    
-    public void addStoryEl(String el) {
-        // если сообщений больше 10, удаляем первое и добавляем новое
-        // иначе просто добавить
-        if (story.size() >= 10) {
+    public void addStoryEl(String el) 
+    {
+        if (story.size() >= 10) 
+        {
             story.removeFirst();
             story.add(el);
-        } else {
+        }
+        else 
+        {
             story.add(el);
         }
     }
-    
-    /**
-     * отсылаем последовательно каждое сообщение из списка
-     * в поток вывода данному клиенту (новому подключению)
-     * @param writer
-     */
-    
-    public void printStory(BufferedWriter writer) {
-        if(story.size() > 0) {
-            try {
+   
+    public void printStory(BufferedWriter writer) 
+    {
+        if(story.size() > 0) 
+        {
+            try 
+            {
                 writer.write("History messages" + "\n");
-                for (String vr : story) {
+                for (String vr : story) 
+                {
                     writer.write(vr + "\n");
                 }
                 writer.write("/...." + "\n");
                 writer.flush();
-            } catch (IOException ignored) {}
+            }
+            catch (IOException ignored) 
+            {
+            	
+            }
             
         }
         
     }
 }
 
-public class Server {
-
-    public static final int PORT = 8080;
-    public static LinkedList<ServerSomthing> serverList = new LinkedList<>(); // список всех нитей - экземпляров
-    // сервера, слушающих каждый своего клиента
-    public static Story story; // история переписки
-    
-    /**
-     * @param args
-     * @throws IOException
-     */
-    
-    public static void main(String[] args) throws IOException {
-        ServerSocket server = new ServerSocket(PORT);
-        story = new Story();
-        System.out.println("Server Started");
-        try {
-            while (true) {
-                // Блокируется до возникновения нового соединения:
-                Socket socket = server.accept();
-                try {
-                    serverList.add(new ServerSomthing(socket)); // добавить новое соединенние в список
-                } catch (IOException e) {
-                    // Если завершится неудачей, закрывается сокет,
-                    // в противном случае, нить закроет его:
-                    socket.close();
-                }
-            }
-        } finally {
-            server.close();
-        }
-    }
+class GUI extends JFrame
+{
+	private static JTextField text;
+	private static JButton button;
+	private static JTextArea area;
+	private static JLabel lab;
+	
+	GUI()
+	{
+		initUI();
+	}
+	private void initUI()
+	{
+		setLayout(null);
+		this.text = new JTextField();
+		text.setBounds(70, 430, 340, 20);
+		this.button = new JButton("Send");
+		button.setBounds(410, 430, 70, 20);
+		button.addActionListener(new ActionListener() 	
+		{
+			@Override
+			public void actionPerformed(ActionEvent e)
+			{
+				IO.readMsg();
+				IO.printMsg(IO.str);
+			}
+	    });
+		this.lab = new JLabel("Enter: ");
+		lab.setBounds(20, 426, 80, 25);
+		this.area = new JTextArea();
+		area.setLineWrap(true);
+		area.setEditable(false);
+		JScrollPane scrollPane = new JScrollPane(area);
+		scrollPane.setBounds(0, 0, 485, 420);
+		add(lab);
+		add(button);
+		add(text);
+		add(scrollPane);
+		setTitle("Server");
+		setSize(500, 500);
+		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setLocationRelativeTo(null);
+		setVisible(true);
+	}
+	
+	class IO
+	{
+		private static String str;
+		
+		static private String readMsg()
+		{
+			str = text.getText();
+			return str;
+		}
+		static void printMsg(String str)
+		{
+			area.append(str);
+			area.append("\n");
+			text.setText(null);
+		}
+	}
 }
