@@ -79,7 +79,7 @@ class ServerPr extends Thread
 						this.closeSocket();
 						break;
 					}
-					if(!str.equals(null))
+					else
 					{
 						GUI.IO.printMsg("Echoing: " + str);
 						Server.story.addStoryEl(str);
@@ -184,7 +184,7 @@ class GUI extends JFrame
 	private static JButton button;
 	private static JTextArea area;
 	private static JLabel lab;
-	
+
 	GUI()
 	{
 		initUI();
@@ -192,9 +192,9 @@ class GUI extends JFrame
 	private void initUI()
 	{
 		setLayout(null);
-		this.text = new JTextField();
+		text = new JTextField();
 		text.setBounds(70, 430, 340, 20);
-		this.button = new JButton("Send");
+		button = new JButton("Send");
 		button.setBounds(410, 430, 70, 20);
 		button.addActionListener(new ActionListener() 	
 		{
@@ -205,9 +205,9 @@ class GUI extends JFrame
 				IO.printMsg(IO.str);
 			}
 	    });
-		this.lab = new JLabel("Enter: ");
+		lab = new JLabel("Enter: ");
 		lab.setBounds(20, 426, 80, 25);
-		this.area = new JTextArea();
+		area = new JTextArea();
 		area.setLineWrap(true);
 		area.setEditable(false);
 		JScrollPane scrollPane = new JScrollPane(area);

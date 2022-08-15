@@ -1,8 +1,11 @@
+import java.awt.*;
 import java.net.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import javax.swing.*;
+import javax.swing.plaf.ColorChooserUI;
+import javax.swing.plaf.multi.MultiColorChooserUI;
 
 public class Client
 {
@@ -22,6 +25,7 @@ class ClientPr
 	private String addr;
 	private int port;
 	static String nickname;
+	private String[] commands;
 	public ClientPr(String addr, int port)
 	{
 		this.addr = addr;
@@ -45,14 +49,18 @@ class ClientPr
 		{
 			ClientPr.this.closeSocket();
 		}
+		commands = new String[1];
+		commands[0] = "/Set text color";
 	}
-	
+
 	class GUI extends JFrame
 	{
 		private static JTextField text;
 		private static JButton button;
 		private static JTextArea area;
 		private static JLabel lab;
+
+		private static ActionListener al;
 		
 		GUI()
 		{
@@ -65,54 +73,54 @@ class ClientPr
 			text.setBounds(70, 430, 340, 20);
 			this.button = new JButton("Send");
 			button.setBounds(410, 430, 70, 20);
-			button.addActionListener(new ActionListener() 	
+			al = new ActionListener()
 			{
 				@Override
 				public void actionPerformed(ActionEvent e)
 				{
-					if(nickname == null)
-					{
-						try
-						{
+					if (nickname == null) {
+						try {
 							nickname = GUI.IO.readMsg();
 							GUI.IO.printMsg(nickname);
 							GUI.IO.printMsg("Hello " + nickname);
 							out.write(nickname + "\n");
 							out.flush();
 							new ReadServerMsg().start();
-						}
-						catch(IOException ex)
-						{
+						} catch (IOException ex) {
 							System.err.println("Nickname failed.");
 						}
-					}
-					else
-					{
+					} else {
 						String str;
-						try
-						{
+						try {
 							str = GUI.IO.readMsg();
-							if(str.equals("STOP"))
-							{
+							if (str.equals("STOP")) {
 								ClientPr.out.write("Client " + ClientPr.nickname + " left the chat\n");
 								ClientPr.this.closeSocket();
 							}
-							else
+							if (str.equals("/Set text color"))
+							{
+								setColorText();
+							}
+							if(str.equals("/help"))
+							{
+								help();
+							}
+							else if (str.length() > 0 && str.charAt(0) != '/')
 							{
 								out.write(nickname + " >> " + str + "\n");
 							}
 							out.flush();
-						}
-						catch(IOException ex)
-						{
+						} catch (IOException ex) {
 							ClientPr.this.closeSocket();
 						}
 					}
 				}
-		    });
-			this.lab = new JLabel("Enter: ");
+			};
+
+			button.addActionListener(al);
+			lab = new JLabel("Enter: ");
 			lab.setBounds(20, 426, 80, 25);
-			this.area = new JTextArea("Enter your nickname: ");
+			area = new JTextArea("Enter your nickname: ");
 			area.setLineWrap(true);
 			area.setEditable(false);
 			JScrollPane scrollPane = new JScrollPane(area);
@@ -163,7 +171,7 @@ class ClientPr
 						ClientPr.this.closeSocket();
 						break;
 				    }
-					if(!str.equals(null))
+					else
 					{
 						GUI.IO.printMsg(str);
 					}
@@ -190,5 +198,51 @@ class ClientPr
 			System.err.println("Socket closing failed");
 			ex.printStackTrace();
 		}
+	}
+
+	private void help()
+	{
+		GUI.IO.printMsg("Commands: ");
+		for(String com : commands)
+		{
+			GUI.IO.printMsg(com);
+		}
+	}
+
+	private void setColorText()
+	{
+		GUI.IO.printMsg("Choose the color: ");
+		String[] colors = {"/RED", "/GREEN", "/BLUE", "/MAGENTA", "/CYAN", "/YELLOW", "/BLACK", "/WHITE", "/GRAY", "/DARK_GRAY", "/LIGHT_GRAY", "/ORANGE", "/PINK"};
+		for(String c : colors)
+		{
+			GUI.IO.printMsg(c + ", ");
+		}
+		GUI.button.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e)
+			{
+				String input = GUI.IO.readMsg();
+				GUI.IO.printMsg(input);
+				switch (input)
+				{
+					case "/RED" -> GUI.area.setForeground(Color.RED);
+					case "/GREEN" -> GUI.area.setForeground(Color.GREEN);
+					case "/BLUE" -> GUI.area.setForeground(Color.BLUE);
+					case "/MAGENTA" -> GUI.area.setForeground(Color.MAGENTA);
+					case "/CYAN" -> GUI.area.setForeground(Color.CYAN);
+					case "/YELLOW" -> GUI.area.setForeground(Color.YELLOW);
+					case "/BLACK" -> GUI.area.setForeground(Color.BLACK);
+					case "/WHITE" -> GUI.area.setForeground(Color.WHITE);
+					case "/GRAY" -> GUI.area.setForeground(Color.GRAY);
+					case "/DARK_GRAY" -> GUI.area.setForeground(Color.DARK_GRAY);
+					case "/LIGHT_GRAY" -> GUI.area.setForeground(Color.LIGHT_GRAY);
+					case "/ORANGE" -> GUI.area.setForeground(Color.ORANGE);
+					case "/PINK" -> GUI.area.setForeground(Color.PINK);
+					default -> GUI.IO.printMsg("Wrong color name");
+				}
+				GUI.button.removeActionListener(this);
+			}
+		});
 	}
 }
